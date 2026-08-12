@@ -8,12 +8,12 @@ class RunnerClient:
         self.base_url = base_url.rstrip("/")
         self._headers = {"Authorization": f"Bearer {token}"}
 
-    def submit_build(self, app_name: str, tag: str, tarball_path: Path) -> dict:
+    def submit_build(self, app_name: str, tag: str, namespace: str, tarball_path: Path) -> dict:
         with open(tarball_path, "rb") as fh:
             resp = requests.post(
                 f"{self.base_url}/builds",
                 headers=self._headers,
-                data={"app": app_name, "tag": tag},
+                data={"app": app_name, "tag": tag, "namespace": namespace},
                 files={"source": (tarball_path.name, fh, "application/gzip")},
                 timeout=120,
                 # Every *.talos.lab host sits behind ingress-nginx's self-signed

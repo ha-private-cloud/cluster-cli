@@ -23,8 +23,14 @@ pattern as every other `*.talos.lab` host in this project).
 ## Usage
 
 ```sh
-ci-cli build ../clusterkeep-ui
+ci-cli build ../clusterkeep-ui --namespace clusterkeep-dev-pub
 ```
+
+`--namespace` is required (no default) — it's the Kubernetes namespace the
+deploy stage's `helm upgrade --namespace <target>` runs against, e.g.
+`clusterkeep-dev-pub`/`clusterkeep-prv-pub`/`clusterkeep-prd-pub` for
+`clusterkeep-ui`. Stating it explicitly on every invocation is deliberate —
+no silent default that could deploy to the wrong environment.
 
 `APP_DIR` must contain a `Dockerfile`, `pyproject.toml`/`uv.lock`, and a Helm
 chart at `charts/<app-name>/` — same layout as `clusterkeep-ui`. The

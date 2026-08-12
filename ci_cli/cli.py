@@ -17,13 +17,18 @@ def main():
 
 @main.command()
 @click.argument("app_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option(
+    "--namespace",
+    required=True,
+    help="Target Kubernetes namespace to deploy into (e.g. clusterkeep-dev-pub). No default — state your target environment explicitly.",
+)
 @click.option("--tag", default=None, help="Image tag to build/push. Defaults to a UTC timestamp.")
 @click.option(
     "--wait/--no-wait",
     default=True,
     help="Stream logs and wait for the result (default), or just enqueue and exit.",
 )
-def build(app_dir: Path, tag: str | None, wait: bool):
+def build(app_dir: Path, namespace: str, tag: str | None, wait: bool):
     """Build, test, push, and deploy the app in APP_DIR.
 
     APP_DIR must contain a Dockerfile, a pyproject.toml/uv.lock, and a Helm
@@ -41,12 +46,12 @@ def build(app_dir: Path, tag: str | None, wait: bool):
 
     with tempfile.TemporaryDirectory() as tmp:
         tarball_path = Path(tmp) / f"{app_name}.tar.gz"
-        click.echo(f"Packaging {app_dir} as {app_name}:{tag}...")
+        click.echo(f"Packaging {app_dir} as {app_name}:{tag} -> {namespace}...")
         build_tarball(app_dir, tarball_path)
 
         click.echo("Uploading and queuing build...")
         try:
-            result = client.submit_build(app_name, tag, tarball_path)
+            result = client.submit_build(app_name, tag, namespace, tarball_path)
         except Exception as exc:  # noqa: BLE001
             raise click.ClickException(f"failed to submit build: {exc}") from exc
 
