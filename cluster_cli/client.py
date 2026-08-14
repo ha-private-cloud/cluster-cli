@@ -17,7 +17,7 @@ class RunnerClient:
                 files={"source": (tarball_path.name, fh, "application/gzip")},
                 timeout=120,
                 # Every *.talos.lab host sits behind ingress-nginx's self-signed
-                # default cert (see cluster-config/README.md) — same reasoning
+                # default cert (see cluster-config/README.md) , same reasoning
                 # Headlamp/Kaniko/every other in-cluster client skips verification.
                 verify=False,
             )

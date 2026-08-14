@@ -22,7 +22,7 @@ def _load_spec(app_dir: Path) -> pathspec.PathSpec:
     # Only .gitignore, deliberately not .dockerignore: .dockerignore controls
     # what goes into the *image* (Kaniko reads it itself from the extracted
     # workspace), which is a different concern from what needs to be
-    # *uploaded* — e.g. clusterkeep-ui's .dockerignore excludes charts/
+    # *uploaded* , e.g. clusterkeep-ui's .dockerignore excludes charts/
     # since the Dockerfile doesn't need it, but the deploy stage does.
     lines = list(ALWAYS_EXCLUDE)
     gitignore = app_dir / ".gitignore"
