@@ -161,8 +161,13 @@ def deploy(app_name: str, namespace: str, tag: str, chart: Path | None):
 
 @main.command(context_settings={"ignore_unknown_options": True})
 @click.argument("repo", type=click.Choice(REPOS))
+@click.option(
+    "--tag",
+    default=None,
+    help="Git tag to check out in REPO before running tofu (fetches tags first). Fails if REPO has uncommitted changes.",
+)
 @click.argument("tofu_args", nargs=-1, type=click.UNPROCESSED)
-def tofu(repo: str, tofu_args: tuple[str, ...]):
+def tofu(repo: str, tag: str | None, tofu_args: tuple[str, ...]):
     """Run `tofu <TOFU_ARGS...>` inside REPO's tofu/ directory.
 
     Everything after REPO is passed straight through to `tofu` as-is, e.g.:
@@ -171,9 +176,10 @@ def tofu(repo: str, tofu_args: tuple[str, ...]):
       cluster-cli tofu cluster-config plan
       cluster-cli tofu clusterkeep-ui apply -var-file=prv.tfvars
       cluster-cli tofu proxmox-tofu output -raw kubeconfig
+      cluster-cli tofu cluster-config --tag v1.2.3 plan
     """
     try:
-        returncode = run_tofu(repo, tofu_args)
+        returncode = run_tofu(repo, tofu_args, tag=tag)
     except (RuntimeError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
     sys.exit(returncode)

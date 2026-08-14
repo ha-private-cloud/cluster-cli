@@ -23,9 +23,39 @@ def repo_tofu_dir(repo: str) -> Path:
     return tofu_dir
 
 
-def run_tofu(repo: str, args: tuple[str, ...]) -> int:
+def checkout_tag(repo_dir: Path, tag: str) -> None:
+    """Checks out `tag` in repo_dir (detached HEAD), first refusing a dirty
+    tree and re-fetching tags so a stale local tag isn't checked out."""
+    status = subprocess.run(
+        ["git", "-C", str(repo_dir), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+    )
+    if status.stdout.strip():
+        raise RuntimeError(f"{repo_dir} has uncommitted changes , refusing to check out {tag!r} over them")
+
+    fetch = subprocess.run(
+        ["git", "-C", str(repo_dir), "fetch", "--tags", "origin"],
+        capture_output=True,
+        text=True,
+    )
+    if fetch.returncode != 0:
+        raise RuntimeError(f"failed to fetch tags in {repo_dir}: {fetch.stderr.strip()}")
+
+    checkout = subprocess.run(
+        ["git", "-C", str(repo_dir), "checkout", tag],
+        capture_output=True,
+        text=True,
+    )
+    if checkout.returncode != 0:
+        raise RuntimeError(f"failed to check out tag {tag!r} in {repo_dir}: {checkout.stderr.strip()}")
+
+
+def run_tofu(repo: str, args: tuple[str, ...], tag: str | None = None) -> int:
     """Runs `tofu <args>` with cwd set to <repo>/tofu, streaming output directly."""
     tofu_dir = repo_tofu_dir(repo)
+    if tag is not None:
+        checkout_tag(tofu_dir.parent, tag)
     try:
         result = subprocess.run(["tofu", *args], cwd=tofu_dir)
     except FileNotFoundError as exc:
