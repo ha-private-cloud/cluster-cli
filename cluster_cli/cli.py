@@ -5,8 +5,9 @@ from pathlib import Path
 import click
 
 from cluster_cli.archive import build_tarball
+from cluster_cli.authentik import list_users, reset_password
 from cluster_cli.client import RunnerClient
-from cluster_cli.config import load_config
+from cluster_cli.config import DEFAULT_KUBECONFIG_PATH, load_config
 from cluster_cli.deploy import helm_upgrade
 from cluster_cli.tagging import default_tag
 from cluster_cli.tofu import REPOS, run_tofu
@@ -183,6 +184,82 @@ def tofu(repo: str, tag: str | None, tofu_args: tuple[str, ...]):
     except (RuntimeError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
     sys.exit(returncode)
+
+
+@main.group()
+def auth():
+    """Manage Authentik users."""
+
+
+def _auth_kubeconfig(override: Path | None) -> Path:
+    """Resolves a kubeconfig without requiring the CI config.
+
+    `auth` only talks to the cluster, so it must not fail just because
+    config.toml (runner URL + API token) has not been set up , that file is
+    only needed for build/deploy.
+    """
+    if override is not None:
+        return override
+    try:
+        return load_config().kubeconfig_path
+    except FileNotFoundError:
+        return DEFAULT_KUBECONFIG_PATH
+
+
+_kubeconfig_option = click.option(
+    "--kubeconfig",
+    "kubeconfig",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Kubeconfig to use. Defaults to config.toml's, else the repo's generated one.",
+)
+
+
+@auth.command("reset-password")
+@click.option("--username", required=True, help="Authentik username to reset.")
+@click.option(
+    "--password",
+    default=None,
+    help="New password. Omit to be prompted (which keeps it out of your shell history).",
+)
+@_kubeconfig_option
+def auth_reset_password(username: str, password: str | None, kubeconfig: Path | None):
+    """Set an Authentik user's password.
+
+    Runs set_password() inside the authentik pod, so Authentik's own hashers
+    and password validators apply , this is the same path the admin UI takes,
+    not a way around policy.
+
+    \b
+      cluster-cli auth reset-password --username test-user
+    """
+    if password is None:
+        password = click.prompt("New password", hide_input=True, confirmation_prompt=True)
+    if not password:
+        raise click.ClickException("password must not be empty")
+
+    try:
+        who = reset_password(username, password, kubeconfig_path=_auth_kubeconfig(kubeconfig))
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.secho(f"Password updated for {who}", fg="green")
+
+
+@auth.command("list-users")
+@_kubeconfig_option
+def auth_list_users(kubeconfig: Path | None):
+    """List Authentik users."""
+    try:
+        users = list_users(kubeconfig_path=_auth_kubeconfig(kubeconfig))
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if not users:
+        click.echo("No users found.")
+        return
+    for user in users:
+        status = "" if user["active"] else "  (inactive)"
+        click.echo(f"  {user['username']:<20} {user['name'] or '':<24} {user['email'] or ''}{status}")
 
 
 if __name__ == "__main__":

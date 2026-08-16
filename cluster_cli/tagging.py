@@ -7,7 +7,7 @@ from pathlib import Path
 # up their own channel's images (see clusterkeep-ui/tofu's image_tag_prefix);
 # release builds get a plain, unprefixed tag.
 BRANCH_TAG_PREFIXES = {
-    "dev": "DEV-",
+    "development": "DEV-",
     "preview": "PREVIEW-",
     "main": "",
 }

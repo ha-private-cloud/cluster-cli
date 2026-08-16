@@ -3,7 +3,7 @@ name = "cluster-cli"
 version = "0.1.0"
 description = "CLI for building apps via cluster-ci's in-cluster runner, deploying them locally via helm, and running tofu across this project's repos"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "click>=8.1.0",
     "requests>=2.32.0",
