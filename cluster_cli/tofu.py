@@ -69,7 +69,7 @@ def checkout_tag(repo_dir: Path, tag: str) -> None:
         raise RuntimeError(f"{repo_dir} has uncommitted changes , refusing to check out {tag!r} over them")
 
     fetch = subprocess.run(
-        ["git", "-C", str(repo_dir), "fetch", "--tags", "origin"],
+        ["git", "-C", str(repo_dir), "fetch", "--tags", "--force", "origin"],
         capture_output=True,
         text=True,
     )
