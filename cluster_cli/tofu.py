@@ -12,9 +12,7 @@ SYNC_LOCK = Path("/tmp/sync-repos.lock")
 
 @contextmanager
 def sync_repos_lock():
-    """Holds the lock sync-repos.sh takes, so its 5-minutely timer can't
-    `git reset --hard origin/main` a repo out from under a running tofu job.
-    Best effort: a lock we can't open must not block infra work."""
+    """Holds the lock sync-repos.sh takes, so a sync can't reset a repo mid-run."""
     try:
         fd = os.open(SYNC_LOCK, os.O_WRONLY | os.O_CREAT, 0o666)
     except OSError as exc:
@@ -31,9 +29,7 @@ def sync_repos_lock():
     finally:
         os.close(fd)
 
-# Target name -> (repo directory under ~/project, tofu root within it). A repo
-# may expose more than one root; each has its own state and is applied
-# separately, so they are addressed as separate targets.
+# Target name -> (repo directory under ~/project, tofu root within it).
 REPOS = {
     "proxmox-tofu": ("proxmox-tofu", "tofu"),
     "proxmox-tofu-firewall": ("proxmox-tofu", "tofu-firewall"),
