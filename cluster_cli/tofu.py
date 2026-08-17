@@ -1,23 +1,61 @@
+import fcntl
+import os
 import subprocess
+import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 from cluster_cli.config import PROJECT_ROOT
 
-# Every repo under ~/project whose .tf files live in a tofu/ subdirectory.
-REPOS = [
-    "proxmox-tofu",
-    "cluster-rbac",
-    "cluster-auth",
-    "cluster-config",
-    "cluster-ci",
-    "clusterkeep-ui",
-]
+SYNC_LOCK = Path("/tmp/sync-repos.lock")
+
+
+@contextmanager
+def sync_repos_lock():
+    """Holds the lock sync-repos.sh takes, so its 5-minutely timer can't
+    `git reset --hard origin/main` a repo out from under a running tofu job.
+    Best effort: a lock we can't open must not block infra work."""
+    try:
+        fd = os.open(SYNC_LOCK, os.O_WRONLY | os.O_CREAT, 0o666)
+    except OSError as exc:
+        print(f"warning: can't open {SYNC_LOCK} ({exc}), proceeding unlocked", file=sys.stderr)
+        yield
+        return
+    try:
+        try:
+            os.fchmod(fd, 0o666)
+        except OSError:
+            pass
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+# Target name -> (repo directory under ~/project, tofu root within it). A repo
+# may expose more than one root; each has its own state and is applied
+# separately, so they are addressed as separate targets.
+REPOS = {
+    "proxmox-tofu": ("proxmox-tofu", "tofu"),
+    "proxmox-tofu-firewall": ("proxmox-tofu", "tofu-firewall"),
+    "cluster-rbac": ("cluster-rbac", "tofu"),
+    "cluster-auth": ("cluster-auth", "tofu"),
+    "cluster-config": ("cluster-config", "tofu"),
+    "cluster-ci": ("cluster-ci", "tofu"),
+    "clusterkeep-ui": ("clusterkeep-ui", "tofu"),
+}
+
+
+def repo_dir(repo: str) -> Path:
+    if repo not in REPOS:
+        raise ValueError(f"unknown repo {repo!r}. Known repos: {', '.join(REPOS)}")
+    return PROJECT_ROOT / REPOS[repo][0]
 
 
 def repo_tofu_dir(repo: str) -> Path:
     if repo not in REPOS:
         raise ValueError(f"unknown repo {repo!r}. Known repos: {', '.join(REPOS)}")
-    tofu_dir = PROJECT_ROOT / repo / "tofu"
+    dir_name, root = REPOS[repo]
+    tofu_dir = PROJECT_ROOT / dir_name / root
     if not tofu_dir.is_dir():
         raise ValueError(f"{tofu_dir} doesn't exist")
     return tofu_dir
@@ -52,12 +90,13 @@ def checkout_tag(repo_dir: Path, tag: str) -> None:
 
 
 def run_tofu(repo: str, args: tuple[str, ...], tag: str | None = None) -> int:
-    """Runs `tofu <args>` with cwd set to <repo>/tofu, streaming output directly."""
+    """Runs `tofu <args>` with cwd set to REPO's tofu root, streaming output directly."""
     tofu_dir = repo_tofu_dir(repo)
-    if tag is not None:
-        checkout_tag(tofu_dir.parent, tag)
-    try:
-        result = subprocess.run(["tofu", *args], cwd=tofu_dir)
-    except FileNotFoundError as exc:
-        raise RuntimeError("`tofu` not found on PATH") from exc
+    with sync_repos_lock():
+        if tag is not None:
+            checkout_tag(repo_dir(repo), tag)
+        try:
+            result = subprocess.run(["tofu", *args], cwd=tofu_dir)
+        except FileNotFoundError as exc:
+            raise RuntimeError("`tofu` not found on PATH") from exc
     return result.returncode

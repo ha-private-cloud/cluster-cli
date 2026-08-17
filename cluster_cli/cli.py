@@ -161,7 +161,7 @@ def deploy(app_name: str, namespace: str, tag: str, chart: Path | None):
 
 
 @main.command(context_settings={"ignore_unknown_options": True})
-@click.argument("repo", type=click.Choice(REPOS))
+@click.argument("repo", type=click.Choice(list(REPOS)))
 @click.option(
     "--tag",
     default=None,
@@ -169,7 +169,7 @@ def deploy(app_name: str, namespace: str, tag: str, chart: Path | None):
 )
 @click.argument("tofu_args", nargs=-1, type=click.UNPROCESSED)
 def tofu(repo: str, tag: str | None, tofu_args: tuple[str, ...]):
-    """Run `tofu <TOFU_ARGS...>` inside REPO's tofu/ directory.
+    """Run `tofu <TOFU_ARGS...>` inside REPO's tofu root.
 
     Everything after REPO is passed straight through to `tofu` as-is, e.g.:
 
@@ -177,6 +177,7 @@ def tofu(repo: str, tag: str | None, tofu_args: tuple[str, ...]):
       cluster-cli tofu cluster-config plan
       cluster-cli tofu clusterkeep-ui apply -var-file=prv.tfvars
       cluster-cli tofu proxmox-tofu output -raw kubeconfig
+      cluster-cli tofu proxmox-tofu-firewall plan
       cluster-cli tofu cluster-config --tag v1.2.3 plan
     """
     try:
