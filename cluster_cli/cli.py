@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 
 from cluster_cli.archive import build_tarball
-from cluster_cli.authentik import list_users, reset_password
+from cluster_cli.auth_api import list_users, reset_password
 from cluster_cli.client import RunnerClient
 from cluster_cli.config import DEFAULT_KUBECONFIG_PATH, load_config
 from cluster_cli.deploy import helm_upgrade
@@ -189,7 +189,7 @@ def tofu(repo: str, tag: str | None, tofu_args: tuple[str, ...]):
 
 @main.group()
 def auth():
-    """Manage Authentik users."""
+    """Manage auth-api users."""
 
 
 def _auth_kubeconfig(override: Path | None) -> Path:
@@ -217,7 +217,7 @@ _kubeconfig_option = click.option(
 
 
 @auth.command("reset-password")
-@click.option("--username", required=True, help="Authentik username to reset.")
+@click.option("--username", required=True, help="auth-api username to reset.")
 @click.option(
     "--password",
     default=None,
@@ -225,11 +225,10 @@ _kubeconfig_option = click.option(
 )
 @_kubeconfig_option
 def auth_reset_password(username: str, password: str | None, kubeconfig: Path | None):
-    """Set an Authentik user's password.
+    """Set a temporary password for an auth-api user.
 
-    Runs set_password() inside the authentik pod, so Authentik's own hashers
-    and password validators apply , this is the same path the admin UI takes,
-    not a way around policy.
+    They must choose a new one at their next sign-in, and any existing
+    sessions are ended.
 
     \b
       cluster-cli auth reset-password --username test-user
@@ -249,7 +248,7 @@ def auth_reset_password(username: str, password: str | None, kubeconfig: Path | 
 @auth.command("list-users")
 @_kubeconfig_option
 def auth_list_users(kubeconfig: Path | None):
-    """List Authentik users."""
+    """List auth-api users."""
     try:
         users = list_users(kubeconfig_path=_auth_kubeconfig(kubeconfig))
     except RuntimeError as exc:
@@ -260,7 +259,10 @@ def auth_list_users(kubeconfig: Path | None):
         return
     for user in users:
         status = "" if user["active"] else "  (inactive)"
-        click.echo(f"  {user['username']:<20} {user['name'] or '':<24} {user['email'] or ''}{status}")
+        if user["must_change_password"]:
+            status += "  (must change password)"
+        groups = ",".join(user["groups"])
+        click.echo(f"  {user['username']:<20} {groups:<32} {user['email'] or ''}{status}")
 
 
 if __name__ == "__main__":

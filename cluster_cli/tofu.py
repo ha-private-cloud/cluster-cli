@@ -33,7 +33,6 @@ def sync_repos_lock():
 REPOS = {
     "proxmox-tofu": ("proxmox-tofu", "tofu"),
     "proxmox-tofu-firewall": ("proxmox-tofu", "tofu-firewall"),
-    "cluster-rbac": ("cluster-rbac", "tofu"),
     "cluster-auth": ("cluster-auth", "tofu"),
     "cluster-config": ("cluster-config", "tofu"),
     "cluster-ci": ("cluster-ci", "tofu"),
