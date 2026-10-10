@@ -4,9 +4,6 @@ from pathlib import Path
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "cluster-cli" / "config.toml"
 
-# cluster-cli lives at PROJECT_ROOT/cluster-cli , everything it operates on
-# (the other repos, the relocated Helm charts, proxmox-tofu's kubeconfig) is
-# a sibling of that, not something meant to be portable outside this layout.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_KUBECONFIG_PATH = PROJECT_ROOT / "proxmox-tofu" / "_out" / "kubeconfig"
 DEFAULT_CHARTS_DIR = PROJECT_ROOT / "charts"

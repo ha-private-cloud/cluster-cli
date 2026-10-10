@@ -29,7 +29,6 @@ def sync_repos_lock():
     finally:
         os.close(fd)
 
-# Target name -> (repo directory under ~/project, tofu root within it).
 REPOS = {
     "proxmox-tofu": ("proxmox-tofu", "tofu"),
     "proxmox-tofu-firewall": ("proxmox-tofu", "tofu-firewall"),
@@ -59,8 +58,7 @@ def repo_tofu_dir(repo: str) -> Path:
 
 
 def checkout_tag(repo_dir: Path, tag: str) -> None:
-    """Checks out `tag` in repo_dir (detached HEAD), first refusing a dirty
-    tree and re-fetching tags so a stale local tag isn't checked out."""
+    """Checks out `tag` in repo_dir as a detached HEAD, refusing a dirty tree."""
     status = subprocess.run(
         ["git", "-C", str(repo_dir), "status", "--porcelain"],
         capture_output=True,

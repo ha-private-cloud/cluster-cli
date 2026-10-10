@@ -16,10 +16,7 @@ def chart_path_for(app_name: str, chart_path: Path | None) -> Path:
 def helm_upgrade(
     *, app_name: str, namespace: str, tag: str, kubeconfig_path: Path, chart_path: Path | None = None
 ) -> int:
-    """Runs `helm upgrade --install` locally against the app's chart, bumping
-    only image.tag and reusing whatever values Tofu's helm_release already
-    set (ingress host, chart version, etc). Streams helm's own output
-    directly rather than capturing it."""
+    """Runs `helm upgrade --install` against the app's chart, changing only image.tag."""
     resolved_chart = chart_path_for(app_name, chart_path)
     args = [
         "helm",

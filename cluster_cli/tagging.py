@@ -2,10 +2,6 @@ import subprocess
 import time
 from pathlib import Path
 
-# Each app repo's checked-out branch decides which "channel" its image tag
-# belongs to: dev/preview builds are prefixed so environments only ever pick
-# up their own channel's images (see clusterkeep-ui/tofu's image_tag_prefix);
-# release builds get a plain, unprefixed tag.
 BRANCH_TAG_PREFIXES = {
     "development": "DEV-",
     "preview": "PREVIEW-",
@@ -14,9 +10,7 @@ BRANCH_TAG_PREFIXES = {
 
 
 def default_tag(app_dir: Path) -> str:
-    """Tag for APP_DIR's current branch, e.g. DEV-20260814120000. Raises
-    ValueError if the branch isn't one cluster-ci's tagging scheme covers ,
-    callers should fall back to requiring an explicit --tag in that case."""
+    """Tag for APP_DIR's current branch"""
     branch = _current_branch(app_dir)
     if branch not in BRANCH_TAG_PREFIXES:
         raise ValueError(

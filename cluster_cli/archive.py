@@ -4,9 +4,7 @@ from pathlib import Path
 
 import pathspec
 
-# Applied regardless of .gitignore/.dockerignore contents. *.tfstate* matters
-# most: app repos like clusterkeep-ui have live Terraform state sitting right
-# next to their source, and it must never leave the machine in a build upload.
+# *.tfstate* must stay: app repos keep live Terraform state next to their source.
 ALWAYS_EXCLUDE = [
     ".git/",
     ".venv/",
@@ -19,11 +17,7 @@ ALWAYS_EXCLUDE = [
 
 
 def _load_spec(app_dir: Path) -> pathspec.PathSpec:
-    # Only .gitignore, deliberately not .dockerignore: .dockerignore controls
-    # what goes into the *image* (Kaniko reads it itself from the extracted
-    # workspace), which is a different concern from what needs to be
-    # *uploaded* , e.g. clusterkeep-ui's .dockerignore excludes charts/
-    # since the Dockerfile doesn't need it, but the deploy stage does.
+    # .gitignore only: .dockerignore excludes files the deploy stage needs uploaded.
     lines = list(ALWAYS_EXCLUDE)
     gitignore = app_dir / ".gitignore"
     if gitignore.exists():
@@ -32,9 +26,7 @@ def _load_spec(app_dir: Path) -> pathspec.PathSpec:
 
 
 def build_tarball(app_dir: Path, dest: Path) -> Path:
-    """Tar+gzip app_dir into dest, excluding anything matched by .gitignore
-    plus ALWAYS_EXCLUDE. Prunes excluded directories during the walk rather
-    than filtering every file after the fact."""
+    """Tar+gzip app_dir into dest, excluding anything matched by .gitignore plus ALWAYS_EXCLUDE."""
     app_dir = app_dir.resolve()
     spec = _load_spec(app_dir)
 
