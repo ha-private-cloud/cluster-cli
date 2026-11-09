@@ -38,6 +38,7 @@ REPOS = {
     "clusterkeep-ui": ("clusterkeep-ui", "tofu"),
     "auth-api": ("auth-api", "tofu"),
     "storage-ui": ("storage-ui", "tofu"),
+    "admin-ui": ("admin-ui", "tofu"),
 }
 
 
