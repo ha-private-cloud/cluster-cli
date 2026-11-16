@@ -20,7 +20,7 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
     if not path.exists():
         raise FileNotFoundError(
             f"{path} not found. Create it with:\n\n"
-            '  runner_url = "https://ci.talos.lab"\n'
+            '  runner_url = "<cluster-ci runner address>"\n'
             '  api_token = "<from `tofu output -raw runner_api_token` in cluster-ci>"\n'
             f'  # kubeconfig_path = "..."  # optional, defaults to {DEFAULT_KUBECONFIG_PATH}\n'
         )
