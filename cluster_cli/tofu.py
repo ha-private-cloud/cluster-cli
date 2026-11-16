@@ -39,6 +39,7 @@ REPOS = {
     "auth-api": ("auth-api", "tofu"),
     "storage-ui": ("storage-ui", "tofu"),
     "admin-ui": ("admin-ui", "tofu"),
+    "storage-api": ("storage-api", "tofu"),
 }
 
 
