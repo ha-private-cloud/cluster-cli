@@ -1,52 +1,68 @@
 # cluster-cli
 
-CLI for this whole homelab project: builds an app via `cluster-ci`'s in-cluster runner, deploys it locally with `helm` afterward, and wraps `tofu` so you don't have to remember which repo's `tofu/` directory you're supposed to be standing in.
+The command line tool behind every ClusterKeep build and deploy. The GitHub workflows on the CI bastion use it, and it works the same from a terminal.
 
 ## Setup
 
 ```sh
 uv sync
-uv tool install --editable .   # installs the `cluster-cli` command
+uv tool install --editable .
 ```
 
-Create `~/.config/cluster-cli/config.toml`:
+Then create `~/.config/cluster-cli/config.toml`:
 
 ```toml
-runner_url = "https://ci.talos.lab"
-api_token = "<from `tofu output -raw runner_api_token` in cluster-ci>"
-# kubeconfig_path = "..."   # optional, defaults to ../proxmox-tofu/_out/kubeconfig
+runner_url = "<cluster-ci runner address>"
+api_token = "<runner_api_token output from cluster-ci>"
 ```
 
-Add `ci.talos.lab` to `/etc/hosts`, pointing at a worker node IP (same pattern as every other `*.talos.lab` host in this project).
+`kubeconfig_path` is optional and defaults to `../proxmox-tofu/_out/kubeconfig`. Every repo is expected to sit next to each other in `~/project`.
 
-## `cluster-cli build` , build, push, and deploy
+## Commands
+
+### `cluster-cli build`
 
 ```sh
-cluster-cli build ../clusterkeep-ui --namespace clusterkeep-dev-pub
+cluster-cli build ../storage-ui --namespace storage-dev-pub --no-deploy
 ```
 
-`--namespace` is required (no default) , no silent default that could deploy to the wrong environment. `APP_DIR` must contain a `Dockerfile` and `pyproject.toml`/`uv.lock` (its Helm chart is looked up separately, see below). Uploads everything except what `.gitignore` lists plus `.git`, `.venv`, `__pycache__`, `.terraform`, and any `*.tfstate*` files (always excluded, regardless of `.gitignore`).
+Packages the app, leaving out anything in its `.gitignore`, and sends it to cluster-ci, which runs the tests and builds and pushes the image. Without `--tag`, the tag comes from the checked-out branch:
 
-Without `--tag`, the tag is derived from `APP_DIR`'s currently checked-out git branch , `dev` → `DEV-<UTC timestamp>`, `preview` → `PREVIEW-<UTC timestamp>`, `main` → a plain `<UTC timestamp>` (no prefix). Any other branch fails with an error asking for an explicit `--tag`. This prefix is what `clusterkeep-ui`'s Tofu (`image_tag_prefix`) filters the registry on per environment when it auto-selects the latest tag to deploy , see its README.
+| Branch | Tag |
+|---|---|
+| `development` | `DEV-<timestamp>` |
+| `preview` | `PREVIEW-<timestamp>` |
+| `main` | `<timestamp>` |
 
-This: packages and uploads `APP_DIR` to `cluster-ci`'s runner, which tests, builds, and pushes the image; then, once that succeeds, runs `helm upgrade --install --reuse-values --set image.tag=<tag>` **locally** against the app's chart. Pass `--no-deploy` to only build+push, or `--no-wait` to just enqueue the build and exit without deploying at all.
+Release tags are `vX.Y.Z`, passed with `--tag`. Without `--no-deploy` it also runs a Helm upgrade afterwards, though the workflows always deploy through OpenTofu instead.
 
-## `cluster-cli deploy` , redeploy without building
+### `cluster-cli deploy`
 
 ```sh
-cluster-cli deploy --app clusterkeep-ui --namespace clusterkeep-dev-pub --tag 20260812160204
+cluster-cli deploy --app storage-ui --namespace storage-dev-pub --tag DEV-20261116201321
 ```
 
-Runs the same local `helm upgrade` step `build` does, for an image tag that's already been pushed , useful for rolling back to a previous tag, or re-applying after editing the chart itself.
+Runs a Helm upgrade for an image that's already been pushed, changing only the image tag. It can't install an app for the first time, because the production settings live in OpenTofu.
 
-Both commands look for the chart at `~/project/charts/<app-name>` by default (deliberately outside every git repo , see `--chart` to override). That path needs a real `tofu`/`helm`/kubeconfig on whatever machine runs `cluster-cli`; it isn't handled by any in-cluster Job , that's why the GitHub Actions self-hosted runner in `../proxmox-tofu`'s "CI bastion" exists, rather than trying to run `cluster-cli` from GitHub's own hosted runners (which have no route to `*.talos.lab`).
-
-## `cluster-cli tofu` , run tofu in the right directory
+### `cluster-cli tofu`
 
 ```sh
 cluster-cli tofu cluster-config plan
-cluster-cli tofu clusterkeep-ui apply -var-file=prv.tfvars
-cluster-cli tofu proxmox-tofu output -raw kubeconfig
+cluster-cli tofu storage-api apply -var-file=prv.tfvars
+cluster-cli tofu auth-api --tag v0.5.0 plan
 ```
 
-Every arg after the repo name is passed straight through to `tofu`, with `cwd` set to that repo's `tofu/` directory , this is a thin convenience wrapper, not a reimplementation of tofu's CLI. Valid repo names: run `cluster-cli tofu --help` to see the current list (kept in `cluster_cli/tofu.py`, one entry per repo under `~/project` that has a `tofu/` subdirectory).
+Runs `tofu` in the right repo's `tofu/` folder and passes every other argument straight through. `--tag` checks that tag out first and refuses if the repo has uncommitted changes. A lock stops a repo sync running at the same time. The repos it knows about are proxmox-tofu, proxmox-tofu-firewall, cluster-auth, cluster-config, cluster-ci, clusterkeep-ui, auth-api, storage-ui, admin-ui and storage-api, set in `cluster_cli/tofu.py`.
+
+### `cluster-cli auth`
+
+```sh
+cluster-cli auth list-users
+cluster-cli auth reset-password --username someone
+```
+
+Runs auth-api's admin command inside its production pod, for when admin-ui isn't an option. The password goes in over standard input so it never shows up in the process list. A reset ends that person's sessions, and they have to choose a new password at their next login.
+
+## Technologies
+
+Python 3.13 with Click, requests for cluster-ci's API, and the `tofu`, `helm` and `kubectl` command line tools.
